@@ -16,7 +16,8 @@ import (
 
 	"github.com/korotovsky/slack-mcp-server/pkg/limiter"
 	"github.com/korotovsky/slack-mcp-server/pkg/provider/edge"
-	"github.com/korotovsky/slack-mcp-server/pkg/transport"
+	"github.com/korotovsky/slack-mcp-server/pkg/provider/lists"
+	httptransport "github.com/korotovsky/slack-mcp-server/pkg/transport"
 	"github.com/rusq/slackdump/v3/auth"
 	"github.com/slack-go/slack"
 	"go.uber.org/zap"
@@ -152,9 +153,15 @@ type SlackAPI interface {
 	// Used to get files
 	GetFileInfoContext(ctx context.Context, fileID string, count, page int) (*slack.File, []slack.Comment, *slack.Paging, error)
 	GetFileContext(ctx context.Context, downloadURL string, writer io.Writer) error
+	GetFilesContext(ctx context.Context, params slack.GetFilesParameters) ([]slack.File, *slack.Paging, error)
 
 	// Used to get channels list from both Slack and Enterprise Grid versions
 	GetConversationsContext(ctx context.Context, params *slack.GetConversationsParameters) ([]slack.Channel, string, error)
+
+	// Canvas API methods
+	CreateCanvasContext(ctx context.Context, title string, documentContent slack.DocumentContent) (string, error)
+	EditCanvasContext(ctx context.Context, params slack.EditCanvasParams) error
+	LookupCanvasSectionsContext(ctx context.Context, params slack.LookupCanvasSectionsParams) ([]slack.CanvasSection, error)
 
 	// Edge API methods
 	ClientUserBoot(ctx context.Context) (*edge.ClientUserBootResponse, error)
@@ -175,9 +182,10 @@ type MCPSlackClient struct {
 }
 
 type ApiProvider struct {
-	transport string
-	client    SlackAPI
-	logger    *zap.Logger
+	transport    string
+	client       SlackAPI
+	listsClient  *lists.Client
+	logger       *zap.Logger
 
 	rateLimiter        *rate.Limiter
 	cacheTTL           time.Duration
@@ -199,7 +207,7 @@ type ApiProvider struct {
 }
 
 func NewMCPSlackClient(authProvider auth.Provider, logger *zap.Logger) (*MCPSlackClient, error) {
-	httpClient := transport.ProvideHTTPClient(authProvider.Cookies(), logger)
+	httpClient := httptransport.ProvideHTTPClient(authProvider.Cookies(), logger)
 
 	slackOpts := []slack.Option{slack.OptionHTTPClient(httpClient)}
 	if os.Getenv("SLACK_MCP_GOVSLACK") == "true" {
@@ -380,6 +388,22 @@ func (c *MCPSlackClient) GetFileContext(ctx context.Context, downloadURL string,
 	return c.slackClient.GetFileContext(ctx, downloadURL, writer)
 }
 
+func (c *MCPSlackClient) GetFilesContext(ctx context.Context, params slack.GetFilesParameters) ([]slack.File, *slack.Paging, error) {
+	return c.slackClient.GetFilesContext(ctx, params)
+}
+
+func (c *MCPSlackClient) CreateCanvasContext(ctx context.Context, title string, documentContent slack.DocumentContent) (string, error) {
+	return c.slackClient.CreateCanvasContext(ctx, title, documentContent)
+}
+
+func (c *MCPSlackClient) EditCanvasContext(ctx context.Context, params slack.EditCanvasParams) error {
+	return c.slackClient.EditCanvasContext(ctx, params)
+}
+
+func (c *MCPSlackClient) LookupCanvasSectionsContext(ctx context.Context, params slack.LookupCanvasSectionsParams) ([]slack.CanvasSection, error) {
+	return c.slackClient.LookupCanvasSectionsContext(ctx, params)
+}
+
 func (c *MCPSlackClient) ClientUserBoot(ctx context.Context) (*edge.ClientUserBootResponse, error) {
 	return c.edgeClient.ClientUserBoot(ctx)
 }
@@ -504,10 +528,13 @@ func newWithXOXP(transport string, authProvider auth.ValueAuth, logger *zap.Logg
 		}
 	}
 
+	httpClient := httptransport.ProvideHTTPClient(authProvider.Cookies(), logger)
+
 	ap := &ApiProvider{
-		transport: transport,
-		client:    client,
-		logger:    logger,
+		transport:   transport,
+		client:      client,
+		listsClient: lists.NewClient(authProvider.SlackToken(), httpClient),
+		logger:      logger,
 
 		rateLimiter:        limiter.Tier2.Limiter(),
 		cacheTTL:           getCacheTTL(),
@@ -561,10 +588,13 @@ func newWithXOXC(transport string, authProvider auth.ValueAuth, logger *zap.Logg
 		}
 	}
 
+	httpClient := httptransport.ProvideHTTPClient(authProvider.Cookies(), logger)
+
 	ap := &ApiProvider{
-		transport: transport,
-		client:    client,
-		logger:    logger,
+		transport:   transport,
+		client:      client,
+		listsClient: lists.NewClient(authProvider.SlackToken(), httpClient),
+		logger:      logger,
 
 		rateLimiter:        limiter.Tier2.Limiter(),
 		cacheTTL:           getCacheTTL(),
@@ -1012,6 +1042,10 @@ func (ap *ApiProvider) ServerTransport() string {
 
 func (ap *ApiProvider) Slack() SlackAPI {
 	return ap.client
+}
+
+func (ap *ApiProvider) Lists() *lists.Client {
+	return ap.listsClient
 }
 
 func (ap *ApiProvider) IsBotToken() bool {

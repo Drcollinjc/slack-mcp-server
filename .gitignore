@@ -13,3 +13,17 @@
 /npm/slack-mcp-server/LICENSE
 /npm/slack-mcp-server/README.md
 docker-compose.release.yml
+
+# Claude Code
+.claude/
+
+# .specify pipeline
+.specify/
+specs/
+
+# Build artifacts
+/build/slack-mcp-server
+/slack-mcp-server
+
+# Temp files
+tmp/

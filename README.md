@@ -17,6 +17,8 @@ This feature-rich Slack MCP Server has:
 - **Safe Message Posting**: The `conversations_add_message` tool is disabled by default for safety. Enable it via an environment variable, with optional channel restrictions.
 - **DM and Group DM support**: Retrieve direct messages and group direct messages.
 - **Embedded user information**: Embed user information in messages, for better context.
+- **Canvas Support**: List, read, create, and edit Slack canvases. Write operations gated behind environment variable for safety.
+- **List Support**: Read, create, update, and delete items in Slack lists with schema-aware formatting. Write operations gated behind environment variable for safety.
 - **Cache support**: Cache users and channels for faster access.
 - **Stdio/SSE/HTTP Transports & Proxy Support**: Use the server with any MCP client that supports Stdio, SSE or HTTP transports, and configure it to route outgoing requests through a proxy if needed.
 
@@ -122,6 +124,85 @@ Search for users by name, email, or display name. Returns user details and DM ch
   - `Title`: User's job title
   - `DMChannelID`: DM channel ID if available in cache (for quick messaging)
 
+### 9. canvases_list:
+List canvases in the workspace. Returns a CSV of canvases with IDs, titles, and creator info.
+- **Parameters:**
+  - `limit` (number, default: 100): Maximum number of canvases to return (1-1000).
+  - `cursor` (string, optional): Cursor for pagination from a previous response.
+
+### 10. canvases_read:
+Read the content of a canvas by its file ID. Returns the canvas title and markdown content.
+- **Parameters:**
+  - `canvas_id` (string, required): The file ID of the canvas (e.g., `F1234567890`).
+
+### 11. canvases_sections_lookup:
+Find sections within a canvas by text content or section type. Returns matching section IDs.
+- **Parameters:**
+  - `canvas_id` (string, required): The file ID of the canvas.
+  - `contains_text` (string, optional): Text to search for within sections.
+
+### 12. canvases_create:
+Create a new standalone canvas with markdown content.
+
+> **Note:** Canvas write tools are disabled by default for safety. To enable, set the `SLACK_MCP_CANVAS_WRITE_TOOL` environment variable to `true`.
+
+- **Parameters:**
+  - `title` (string, required): Title for the new canvas.
+  - `content` (string, required): Canvas content in markdown format.
+
+### 13. canvases_edit:
+Edit an existing canvas. Supports operations: `insert_after`, `insert_before`, `insert_at_start`, `insert_at_end`, `replace`, `delete`.
+
+> **Note:** Canvas write tools are disabled by default for safety. To enable, set the `SLACK_MCP_CANVAS_WRITE_TOOL` environment variable to `true`.
+
+- **Parameters:**
+  - `canvas_id` (string, required): The file ID of the canvas.
+  - `operation` (string, required): Edit operation — one of `insert_after`, `insert_before`, `insert_at_start`, `insert_at_end`, `replace`, `delete`.
+  - `content` (string, optional): New content in markdown format (required for insert/replace operations).
+  - `section_id` (string, optional): Section ID to target (use `canvases_sections_lookup` to find). Required for `insert_after`, `insert_before`, `replace`, `delete`.
+
+### 14. lists_get_items:
+Get items from a Slack list with pagination. Returns items as CSV with column headers matching the list schema.
+- **Parameters:**
+  - `list_id` (string, required): The ID of the list (e.g., `F1234567890`).
+  - `cursor` (string, optional): Cursor for pagination from a previous response.
+  - `limit` (number, default: 100): Maximum number of items to return.
+
+### 15. lists_get_item:
+Get a single item from a Slack list by record ID. Returns the item's fields as key-value text.
+- **Parameters:**
+  - `list_id` (string, required): The ID of the list.
+  - `record_id` (string, required): The record ID of the item.
+
+### 16. lists_add_item:
+Add a new item to a Slack list. Text values are automatically wrapped in the required Block Kit format.
+
+> **Note:** List write tools are disabled by default for safety. To enable, set the `SLACK_MCP_LIST_WRITE_TOOL` environment variable to `true`.
+
+- **Parameters:**
+  - `list_id` (string, required): The ID of the list.
+  - `fields` (string, required): JSON object mapping column IDs to values (e.g., `{"Col001": "Task name", "Col002": "high"}`).
+
+### 17. lists_update_item:
+Update a specific field in a Slack list item. Text values are automatically wrapped in Block Kit format.
+
+> **Note:** List write tools are disabled by default for safety. To enable, set the `SLACK_MCP_LIST_WRITE_TOOL` environment variable to `true`.
+
+- **Parameters:**
+  - `list_id` (string, required): The ID of the list.
+  - `record_id` (string, required): The record ID of the item to update.
+  - `column_id` (string, required): The column ID to update.
+  - `value` (string, optional): The new value for the field.
+
+### 18. lists_delete_item:
+Delete an item from a Slack list.
+
+> **Note:** List write tools are disabled by default for safety. To enable, set the `SLACK_MCP_LIST_WRITE_TOOL` environment variable to `true`.
+
+- **Parameters:**
+  - `list_id` (string, required): The ID of the list.
+  - `record_id` (string, required): The record ID of the item to delete.
+
 ## Resources
 
 The Slack MCP Server exposes two special directory resources for easy access to workspace metadata:
@@ -179,6 +260,8 @@ Fetches a CSV directory of all users in the workspace.
 | `SLACK_MCP_USERS_CACHE`           | No        | `~/Library/Caches/slack-mcp-server/users_cache.json` (macOS)<br>`~/.cache/slack-mcp-server/users_cache.json` (Linux)<br>`%LocalAppData%/slack-mcp-server/users_cache.json` (Windows) | Path to the users cache file. Used to cache Slack user information to avoid repeated API calls on startup. |
 | `SLACK_MCP_CHANNELS_CACHE`        | No        | `~/Library/Caches/slack-mcp-server/channels_cache_v2.json` (macOS)<br>`~/.cache/slack-mcp-server/channels_cache_v2.json` (Linux)<br>`%LocalAppData%/slack-mcp-server/channels_cache_v2.json` (Windows) | Path to the channels cache file. Used to cache Slack channel information to avoid repeated API calls on startup. |
 | `SLACK_MCP_LOG_LEVEL`             | No        | `info`                    | Log-level for stdout or stderr. Valid values are: `debug`, `info`, `warn`, `error`, `panic` and `fatal`                                                                                                                                                                                   |
+| `SLACK_MCP_CANVAS_WRITE_TOOL`     | No        | `nil`                     | Enable canvas write tools (`canvases_create`, `canvases_edit`). Set to `true` to enable.                                                                                                                                                                                                  |
+| `SLACK_MCP_LIST_WRITE_TOOL`       | No        | `nil`                     | Enable list write tools (`lists_add_item`, `lists_update_item`, `lists_delete_item`). Set to `true` to enable.                                                                                                                                                                            |
 | `SLACK_MCP_GOVSLACK`              | No        | `nil`                     | Set to `true` to enable [GovSlack](https://slack.com/solutions/govslack) mode. Routes API calls to `slack-gov.com` endpoints instead of `slack.com` for FedRAMP-compliant government workspaces.                                                                                          |
 
 *You need one of: `xoxp` (user), `xoxb` (bot), or both `xoxc`/`xoxd` tokens for authentication.
