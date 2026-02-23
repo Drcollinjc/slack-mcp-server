@@ -20,12 +20,12 @@ import (
 type mockSlackAPI struct {
 	provider.SlackAPI
 
-	getFilesContextFn              func(ctx context.Context, params slack.GetFilesParameters) ([]slack.File, *slack.Paging, error)
-	getFileInfoContextFn           func(ctx context.Context, fileID string, count, page int) (*slack.File, []slack.Comment, *slack.Paging, error)
-	getFileContextFn               func(ctx context.Context, downloadURL string, writer io.Writer) error
-	lookupCanvasSectionsContextFn  func(ctx context.Context, params slack.LookupCanvasSectionsParams) ([]slack.CanvasSection, error)
-	createCanvasContextFn          func(ctx context.Context, title string, documentContent slack.DocumentContent) (string, error)
-	editCanvasContextFn            func(ctx context.Context, params slack.EditCanvasParams) error
+	getFilesContextFn             func(ctx context.Context, params slack.GetFilesParameters) ([]slack.File, *slack.Paging, error)
+	getFileInfoContextFn          func(ctx context.Context, fileID string, count, page int) (*slack.File, []slack.Comment, *slack.Paging, error)
+	getFileContextFn              func(ctx context.Context, downloadURL string, writer io.Writer) error
+	lookupCanvasSectionsContextFn func(ctx context.Context, params slack.LookupCanvasSectionsParams) ([]slack.CanvasSection, error)
+	createCanvasContextFn         func(ctx context.Context, title string, documentContent slack.DocumentContent) (string, error)
+	editCanvasContextFn           func(ctx context.Context, params slack.EditCanvasParams) error
 }
 
 func (m *mockSlackAPI) AuthTest() (*slack.AuthTestResponse, error) {

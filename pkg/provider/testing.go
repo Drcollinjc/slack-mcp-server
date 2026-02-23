@@ -13,12 +13,12 @@ import (
 // The provider is initialized as ready with empty caches.
 func NewTestProvider(client SlackAPI, logger *zap.Logger) *ApiProvider {
 	ap := &ApiProvider{
-		transport:   "stdio",
-		client:      client,
-		listsClient: nil,
-		logger:      logger,
-		rateLimiter: rate.NewLimiter(rate.Inf, 0),
-		usersReady:  true,
+		transport:     "stdio",
+		client:        client,
+		listsClient:   nil,
+		logger:        logger,
+		rateLimiter:   rate.NewLimiter(rate.Inf, 0),
+		usersReady:    true,
 		channelsReady: true,
 	}
 	ap.usersSnapshot.Store(&UsersCache{

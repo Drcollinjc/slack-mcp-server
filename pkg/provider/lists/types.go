@@ -57,8 +57,8 @@ type Item struct {
 // UnmarshalJSON converts the API's fields array into a map keyed by column_id.
 func (item *Item) UnmarshalJSON(data []byte) error {
 	var raw struct {
-		ID     string          `json:"id"`
-		Fields []ItemField     `json:"fields"`
+		ID     string      `json:"id"`
+		Fields []ItemField `json:"fields"`
 	}
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
@@ -95,8 +95,8 @@ type GetItemsResponse struct {
 // GetItemResponse is the response from slackLists.items.info.
 type GetItemResponse struct {
 	SlackResponse
-	List     ListInfo `json:"list"`
-	Record   Item     `json:"record"`
+	List   ListInfo `json:"list"`
+	Record Item     `json:"record"`
 }
 
 // AddItemResponse is the response from slackLists.items.create.
